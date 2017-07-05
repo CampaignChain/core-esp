@@ -1,0 +1,4 @@
+services:
+#    campaign_chain_core_esp.example:
+#        class: CampaignChain\Core\ESPBundle\Example
+#        arguments: [@service_id, "plain_value", %parameter%]

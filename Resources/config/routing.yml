@@ -1,0 +1,3 @@
+campaign_chain_core_esp_homepage:
+    path:     /hello/{name}
+    defaults: { _controller: CampaignChainCoreESPBundle:Default:index }
