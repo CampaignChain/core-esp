@@ -17,6 +17,7 @@
         "docs": "http://doc.campaignchain.com"
     },
     "require": {
+        "elasticsearch/elasticsearch": "~5.0",
         "campaignchain/protobuf": "dev-master"
     },
     "autoload": {
