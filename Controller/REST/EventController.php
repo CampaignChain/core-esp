@@ -25,6 +25,7 @@ use Nelmio\ApiDocBundle\Annotation\ApiDoc;
 use FOS\RestBundle\Request\ParamFetcher;
 use Symfony\Component\HttpFoundation\Response;
 use Sensio\Bundle\FrameworkExtraBundle\Configuration\ParamConverter;
+use Elasticsearch\ClientBuilder;
 
 /**
  * @REST\NamePrefix("campaignchain_core_esp_rest_")
@@ -96,6 +97,9 @@ class EventController extends BaseController
     public function postEventAction(Request $request, $data)
     {
         try {
+            /*
+             * Check if REST payload data contains all required data.
+             */
             if(!isset($data['event']) || empty($data['event'])){
                 throw new \Exception('Event name not defined');
             }
@@ -109,6 +113,9 @@ class EventController extends BaseController
                 throw new \Exception('Properties data is empty');
             }
 
+            /*
+             * Parse event name.
+             */
             $eventURI = $data['event'];
             $eventParts = explode('/', $eventURI);
             if(count($eventParts) == 2 || count($eventParts) > 3) {
@@ -148,9 +155,31 @@ class EventController extends BaseController
             /** @var \Likes\Likes $protoObj */
             $protoObj = new $protoClass();
 
+            // Check if data is valid.
             $protoObj->mergeFromJsonString(json_encode($data['properties']));
 
+            // Filter data through Proto to omit data points not defined there.
             $data['properties'] = json_decode($protoObj->serializeToJsonString(), true);
+
+            /*
+             * Set or parse common fields.
+             */
+            $now = new \DateTime();
+            $data['properties']['received_at'] = $now->format(\DateTime::ISO8601);
+            if(!isset($data['properties']['timestamp'])){
+                $data['properties']['timestamp'] = $data['properties']['received_at'];
+            }
+
+            /*
+             * Put data into Elasticsearch
+             */
+            $esClient = ClientBuilder::create()->setHosts(array('localhost:9200'))->build();
+            $params = [
+                'index' => 'campaignchain_core_esp',
+                'type'  => $eventURI,
+                'body'  => $data['properties'],
+            ];
+            $response = $esClient->index($params);
 
 //            $response = $this->forward(
 //                $getActivityControllerMethod,
@@ -159,7 +188,7 @@ class EventController extends BaseController
 //                )
 //            );
 //            return $response->setStatusCode(Response::HTTP_CREATED);
-            return $this->response($data);
+            return $this->response($response);
         } catch (\Exception $e) {
             return $this->errorResponse($e->getMessage(), $e->getCode());
         }

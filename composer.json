@@ -17,8 +17,9 @@
         "docs": "http://doc.campaignchain.com"
     },
     "require": {
+        "campaignchain/protobuf": "dev-master",
         "elasticsearch/elasticsearch": "~5.0",
-        "campaignchain/protobuf": "dev-master"
+        "friendsofsymfony/elastica-bundle": "dev-master"
     },
     "autoload": {
       "psr-4": { "CampaignChain\\Core\\ESPBundle\\": "" }
