@@ -1,4 +1,4 @@
-# Copyright 2017 CampaignChain, Inc. <info@campaignchain.com>
+# Copyright 2016 CampaignChain, Inc. <info@campaignchain.com>
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,13 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# REST routes are being created automatically via FOSRestBundle.
-campaignchain_core_esp_rest_public:
-    resource: "@CampaignChainCoreESPBundle/Resources/config/routing_rest.yml"
-    prefix: /api/v1/esp
-
-# We clone the public REST API for the private to make it accessible to the Web app
-campaignchain_core_esp_rest_private_public:
-    resource: "@CampaignChainCoreESPBundle/Resources/config/routing_rest.yml"
-    type: campaignchain-clone/api_private_
-    prefix: /api/private/esp
+campaignchain_core_esp_rest_root:
+    type:     rest
+    prefix:   /
+    resource: CampaignChain\Core\ESPBundle\Controller\REST\EventController

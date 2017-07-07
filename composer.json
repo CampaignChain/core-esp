@@ -2,7 +2,7 @@
     "name": "campaignchain/core-esp",
     "description": "Event Stream Processing",
     "keywords": ["campaignchain"],
-    "type": "symfony-bundle",
+    "type": "campaignchain-symfony",
     "homepage": "http://www.campaignchain.com",
     "license": "Apache-2.0",
     "authors": [
@@ -21,5 +21,20 @@
     },
     "autoload": {
       "psr-4": { "CampaignChain\\Core\\ESPBundle\\": "" }
+    },
+    "extra": {
+        "campaignchain": {
+            "kernel": {
+                "classes": [
+                    "CampaignChain\\Core\\ESPBundle\\CampaignChainCoreESPBundle"
+                ],
+                "routing":
+                {
+                    "name": "campaignchain_core_esp",
+                    "resource": "@CampaignChainCoreESPBundle/Resources/config/routing.yml",
+                    "prefix": "/"
+                }
+            }
+        }
     }
 }
