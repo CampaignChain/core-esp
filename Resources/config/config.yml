@@ -11,10 +11,3 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-fos_elastica:
-    clients:
-        campaignchain_core_esp: { host: localhost, port: 9200 }
-    indexes:
-        campaignchain_core_esp:
-            index_name: campaignchain_core_esp

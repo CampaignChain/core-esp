@@ -173,16 +173,15 @@ class EventController extends BaseController
             /*
              * Put data into Elasticsearch
              */
-            //$esIndex = $this->getParameter('fos_elastica.indexes.campaignchain_core_esp.index_name');
-            //$esClientConfig = $this->getParameter('fos_elastica.clients.default');
-
             $esClient = ClientBuilder::create()->setHosts(
-                //array($esClientConfig['host'].':'.$esClientConfig['port'])
-                array('localhost:9200')
+                array(
+                    $this->getParameter('elasticsearch_host')
+                    .':'
+                    .$this->getParameter('elasticsearch_port'))
             )->build();
 
             $params = [
-                'index' => 'campaignchain_core_esp',
+                'index' => $this->getParameter('elasticsearch_index'),
                 'type'  => $eventURI,
                 'body'  => $data['properties'],
             ];
