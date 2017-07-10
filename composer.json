@@ -19,7 +19,7 @@
     "require": {
         "campaignchain/protobuf": "dev-master",
         "elasticsearch/elasticsearch": "~5.0",
-        "friendsofsymfony/elastica-bundle": "dev-master"
+        "friendsofsymfony/elastica-bundle": "~4.0"
     },
     "autoload": {
       "psr-4": { "CampaignChain\\Core\\ESPBundle\\": "" }
@@ -28,6 +28,7 @@
         "campaignchain": {
             "kernel": {
                 "classes": [
+                    "FOS\\ElasticaBundle\\FOSElasticaBundle",
                     "CampaignChain\\Core\\ESPBundle\\CampaignChainCoreESPBundle"
                 ],
                 "routing":
