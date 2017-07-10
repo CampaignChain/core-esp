@@ -33,7 +33,7 @@ class Configuration implements ConfigurationInterface
     public function getConfigTreeBuilder()
     {
         $treeBuilder = new TreeBuilder();
-        $rootNode = $treeBuilder->root('campaign_chain_core_esp');
+        $rootNode = $treeBuilder->root('campaignchain_core_esp');
 
         // Here you should define the parameters that are allowed to
         // configure your bundle. See the documentation linked above for

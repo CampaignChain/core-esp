@@ -17,8 +17,13 @@
 
 namespace CampaignChain\Core\ESPBundle;
 
+use CampaignChain\Core\ESPBundle\DependencyInjection\CampaignChainCoreESPExtension;
 use Symfony\Component\HttpKernel\Bundle\Bundle;
 
 class CampaignChainCoreESPBundle extends Bundle
 {
+    public function getContainerExtension()
+    {
+        return new CampaignChainCoreESPExtension();
+    }
 }
