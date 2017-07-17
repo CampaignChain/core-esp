@@ -175,7 +175,7 @@ class EventController extends BaseController
              */
             $esClient = ClientBuilder::create()->setHosts(
                 array(
-                    $this->getParameter('elasticsearch_host')
+                    $this->getParameter('elasticsearch_scheme').'://'.$this->getParameter('elasticsearch_host')
                     .':'
                     .$this->getParameter('elasticsearch_port'))
             )->build();
