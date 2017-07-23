@@ -141,9 +141,16 @@ class EventController extends BaseController
                 .DIRECTORY_SEPARATOR.$package;
             $protoPackagePath = $generatedProtoPath.DIRECTORY_SEPARATOR.$event;
 
+            $protoMetadataFile = $generatedProtoPath.DIRECTORY_SEPARATOR.'GPBMetadata'.DIRECTORY_SEPARATOR.$event.'.php';
+
+            if(!file_exists($protoMetadataFile)){
+                throw new \Exception('Proto for event "'.$event.'" does not exist in package "'.$package.'"');
+            }
+
             require $generatedProtoPath.DIRECTORY_SEPARATOR.'GPBMetadata'.DIRECTORY_SEPARATOR.$event.'.php';
 
             $protoFiles = array_diff(scandir($protoPackagePath), array('..', '.'));
+
             foreach($protoFiles as $protoFile){
                 require $protoPackagePath.DIRECTORY_SEPARATOR.$protoFile;
             }
@@ -173,8 +180,17 @@ class EventController extends BaseController
             /*
              * Call a bundle's ESP manager.
              */
-            $espParams = $this->getParameter('campaignchain.core.esp');
-            print_r($espParams);
+            try {
+                // Handle with grace if no managers have been defined at all.
+                $espParams = $this->getParameter('campaignchain.core.esp');
+            } catch(\Exception $e) {}
+
+            if(isset($espParams) && is_array($espParams) && count($espParams)){
+                if(isset($espParams[$package]) && isset($espParams[$package]['manager'])){
+                    $espManager = $this->get($espParams[$package]['manager']);
+                    $espManager->detachEvent($event, $data['properties']);
+                }
+            }
 
             /*
              * Put data into Elasticsearch
