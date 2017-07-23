@@ -171,6 +171,12 @@ class EventController extends BaseController
             }
 
             /*
+             * Call a bundle's ESP manager.
+             */
+            $espParams = $this->getParameter('campaignchain.core.esp');
+            print_r($espParams);
+
+            /*
              * Put data into Elasticsearch
              */
             $esClient = ClientBuilder::create()->setHosts(
