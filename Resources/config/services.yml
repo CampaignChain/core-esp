@@ -13,6 +13,7 @@
 # limitations under the License.
 
 services:
-#    campaign_chain_core_esp.example:
-#        class: CampaignChain\Core\ESPBundle\Example
-#        arguments: [@service_id, "plain_value", %parameter%]
+    campaignchain.core.esp.rest.client:
+        class: CampaignChain\Core\ESPBundle\Service\EspRestClient
+        arguments:
+            - "%router.request_context.scheme%://%router.request_context.host%"
