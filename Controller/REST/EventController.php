@@ -102,16 +102,16 @@ class EventController extends BaseController
              * Check if REST payload data contains all required data.
              */
             if(!isset($data['event']) || empty($data['event'])){
-                throw new \Exception('Event name not defined');
+                $this->throwException('Event name not defined', $data);
             }
 
             if(!isset($data['properties'])){
-                throw new \Exception('Properties not defined');
+                $this->throwException('Properties not defined', $data);
             }
 
             $properties = $data['properties'];
             if(!is_array($properties) || !count($properties)){
-                throw new \Exception('Properties data is empty');
+                $this->throwException('Properties data is empty', $data);
             }
 
             /*
@@ -121,11 +121,10 @@ class EventController extends BaseController
             $eventParts = explode('/', $eventURI);
             if(count($eventParts) == 2 || count($eventParts) > 3) {
                 // The package name is not correct.
-                throw new \Exception(
-                    'The event URI is not correct. '
+                $errMsg = 'The event URI is not correct. '
                     .'It should consist of either just the event name or '
-                    .'the event name prefixed with a CampaignChain package name.'
-                );
+                    .'the event name prefixed with a CampaignChain package name.';
+                $this->throwException($errMsg, $data);
             }
             if(count($eventParts) > 1) {
                 //
@@ -145,7 +144,10 @@ class EventController extends BaseController
             $protoMetadataFile = $protoMetadataPath.DIRECTORY_SEPARATOR.$event.'.php';
 
             if(!file_exists($protoMetadataFile)){
-                throw new \Exception('Proto for event "'.$event.'" does not exist in package "'.$package.'"');
+                $this->throwException(
+                    'Proto for event "'.$event.'" does not exist in package "'.$package.'"',
+                    $data
+                );
             }
 
             $finder = new Finder();
