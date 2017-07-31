@@ -19,6 +19,7 @@ namespace CampaignChain\Core\ESPBundle\Controller\REST;
 
 use CampaignChain\CoreBundle\Controller\REST\BaseController;
 use FOS\RestBundle\Controller\Annotations as REST;
+use Symfony\Component\Finder\Finder;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Session\Session;
 use Nelmio\ApiDocBundle\Annotation\ApiDoc;
@@ -139,20 +140,19 @@ class EventController extends BaseController
             $generatedProtoPath =
                 $this->getParameter('campaignchain_protobuf.php_out')
                 .DIRECTORY_SEPARATOR.$package;
-            $protoPackagePath = $generatedProtoPath.DIRECTORY_SEPARATOR.$event;
 
-            $protoMetadataFile = $generatedProtoPath.DIRECTORY_SEPARATOR.'GPBMetadata'.DIRECTORY_SEPARATOR.$event.'.php';
+            $protoMetadataPath = $generatedProtoPath.DIRECTORY_SEPARATOR.'GPBMetadata';
+            $protoMetadataFile = $protoMetadataPath.DIRECTORY_SEPARATOR.$event.'.php';
 
             if(!file_exists($protoMetadataFile)){
                 throw new \Exception('Proto for event "'.$event.'" does not exist in package "'.$package.'"');
             }
 
-            require $generatedProtoPath.DIRECTORY_SEPARATOR.'GPBMetadata'.DIRECTORY_SEPARATOR.$event.'.php';
+            $finder = new Finder();
+            $finder->files()->in($generatedProtoPath)->name('*.php');
 
-            $protoFiles = array_diff(scandir($protoPackagePath), array('..', '.'));
-
-            foreach($protoFiles as $protoFile){
-                require $protoPackagePath.DIRECTORY_SEPARATOR.$protoFile;
+            foreach ($finder as $file) {
+                require $file->getRealPath();
             }
 
             /*
