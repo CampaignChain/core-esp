@@ -17,3 +17,4 @@ services:
         class: CampaignChain\Core\ESPBundle\Service\EspRestClient
         arguments:
             - "%router.request_context.scheme%://%router.request_context.host%"
+            - "@monolog.logger.external"

@@ -18,32 +18,53 @@
 namespace CampaignChain\Core\ESPBundle\Service;
 
 use GuzzleHttp\Client;
-use GuzzleHttp\Middleware;
+use Monolog\Logger;
+use Psr\Http\Message\ResponseInterface;
+use GuzzleHttp\Exception\RequestException;
 
 class EspRestClient
 {
     protected $client;
+    protected $logger;
 
     protected $endpoints = array(
         'event' => '/api/private/esp/event',
     );
 
-    public function __construct($baseUrl)
+    public function __construct($baseUrl, Logger $logger)
     {
         foreach($this->endpoints as $name => $uri){
             $this->endpoints[$name] = $baseUrl.$uri;
         }
         $this->client = new Client();
+
+        $this->logger = $logger;
     }
 
     public function postEvent($event, $properties)
     {
-        //die($this->endpoints['event']);
-        $res = $this->client->request(
-            'POST', $this->endpoints['event'],
+        $this->logger->debug('Attempt: Post asynchronously this event: '.$event);
+        $promise = $this->client->postAsync(
+            $this->endpoints['event'],
             array('json' => $properties)
         );
 
-        return json_decode($res->getBody());
+        $promise->then(
+            function (ResponseInterface $res) {
+                return json_decode($res->getBody());
+
+            },
+            function (RequestException $e) {
+                $this->logger->error($e->getMessage(), array(
+                    'method' => $e->getRequest()->getMethod(),
+                    'file' => $e->getFile(),
+                    'line' => $e->getLine(),
+                    'trace' => $e->getTrace(),
+                ));
+                throw new \Exception($e->getMessage());
+            }
+        );
+
+        $promise->wait();
     }
 }
