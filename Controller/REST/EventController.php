@@ -170,6 +170,10 @@ class EventController extends BaseController
             // Filter data through Proto to omit data points not defined there.
             $data['properties'] = json_decode($protoObj->serializeToJsonString(), true);
 
+            if(!is_array($data['properties']) || !count($data['properties'])){
+                $this->throwException("None of the properties match the .proto definition for event '".$event."'");
+            }
+
             /*
              * Set or parse common fields.
              */
@@ -190,7 +194,7 @@ class EventController extends BaseController
             if(isset($espParams) && is_array($espParams) && count($espParams)){
                 if(isset($espParams[$package]) && isset($espParams[$package]['manager'])){
                     $espManager = $this->get($espParams[$package]['manager']);
-                    $espManager->detachEvent($event, $data['properties']);
+                    $data['properties'] = $espManager->detachEvent($event, $data['properties']);
                 }
             }
 
