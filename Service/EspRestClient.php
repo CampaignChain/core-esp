@@ -43,7 +43,10 @@ class EspRestClient
 
     public function postEvent($event, $properties)
     {
-        $this->logger->debug('Attempt: Post asynchronously this event: '.$event);
+        $this->logger->debug(
+            "Attempt: Post event '".$event."' asynchronously to '"
+            .$this->endpoints['event']."'"
+        );
 
         $promise = $this->client->postAsync(
             $this->endpoints['event'],
