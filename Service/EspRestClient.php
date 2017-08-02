@@ -28,7 +28,7 @@ class EspRestClient
     protected $logger;
 
     protected $endpoints = array(
-        'event' => '/api/private/esp/event',
+        'event' => '/api/v1/esp/event',
     );
 
     public function __construct($baseUrl, Logger $logger)
@@ -60,8 +60,15 @@ class EspRestClient
 
         $promise->then(
             function (ResponseInterface $res) {
-                $this->logger->debug('Success: Posted asynchronously');
-                return json_decode($res->getBody());
+                $body = json_decode($res->getBody());
+                if(is_array($body) && isset($body['error'])){
+                    $this->logger->error($body['error']['message'], array(
+                        'code' => $body['error']['code'],
+                    ));
+                } else {
+                    $this->logger->debug('Success: Posted asynchronously');
+                }
+                return $body;
 
             },
             function (RequestException $e) {
