@@ -208,8 +208,14 @@ class EventController extends BaseController
                     .$this->getParameter('elasticsearch_port'))
             )->build();
 
+            $esIndex =
+                $this->getParameter('elasticsearch_index')
+                .'.'
+                .str_replace('/', '.', $package);
+
+
             $params = [
-                'index' => $this->getParameter('elasticsearch_index'),
+                'index' => $esIndex,
                 'type'  => $eventURI,
                 'body'  => $data['properties'],
             ];
