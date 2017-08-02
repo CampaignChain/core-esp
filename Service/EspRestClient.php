@@ -78,7 +78,7 @@ class EspRestClient
                     'line' => $e->getLine(),
                     'trace' => $e->getTrace(),
                 ));
-                throw new \Exception($e->getMessage());
+                //throw new \Exception($e->getMessage());
             }
         );
 
