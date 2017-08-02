@@ -72,13 +72,13 @@ class EspRestClient
 
             },
             function (RequestException $e) {
-                $this->logger->error($e->getMessage(), array(
+                $this->logger->error($e->getResponse()->getBody()->getContents(), array(
                     'method' => $e->getRequest()->getMethod(),
                     'file' => $e->getFile(),
                     'line' => $e->getLine(),
                     'trace' => $e->getTrace(),
                 ));
-                throw new \Exception($e->getMessage());
+                //throw new \Exception($e->getMessage());
             }
         );
 
