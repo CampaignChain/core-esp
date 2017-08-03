@@ -36,6 +36,19 @@ use Elasticsearch\ClientBuilder;
  */
 class EventController extends BaseController
 {
+    public static function validateEventUri($value)
+    {
+        // allow
+        // vendor/bundle-name/event
+        foreach (explode(',', $value) as $c) {
+            $c = trim(strtr($c, '/', '\\'));
+            if (!preg_match('/^(?:[a-zA-Z][a-zA-Z0-9_-]*\\\?)+((?:[a-zA-Z][a-zA-Z0-9_-]*\\\?))+([a-zA-Z][a-zA-Z0-9_]*)((?:[a-zA-Z][a-zA-Z0-9_]*?))+$/', $c)) {
+                throw new \InvalidArgumentException('Not a valid event URI. It should be in the format "[vendor-name]/[bundle-name]/[event-name]".');
+            }
+        }
+        return $value;
+    }
+
     /**
      * Send event data to CampaignChain to track any actions a user performs,
      * such as data about a user who registered in your online shop.
@@ -60,24 +73,24 @@ class EventController extends BaseController
      * =============
      *
     {
-        "event": "campaignchain/operation-facebook/Likes",
-        "properties": {
-            "data": [
-                {
-                    "id": "100000000000000000",
-                    "name": "John Doe"
-                }
-            ],
-            "paging": {
-                "cursors": {
-                    "before": "MTAyMDM1MzIxNjM3MjcwNjQZD",
-                    "after": "MTAyMDM1MzIxNjM3MjcwNjQZD"
-                }
-            },
-            "summary": {
-                "total_count": 42
-            }
-        }
+    "event": "campaignchain/operation-facebook/Likes",
+    "properties": {
+    "data": [
+    {
+    "id": "100000000000000000",
+    "name": "John Doe"
+    }
+    ],
+    "paging": {
+    "cursors": {
+    "before": "MTAyMDM1MzIxNjM3MjcwNjQZD",
+    "after": "MTAyMDM1MzIxNjM3MjcwNjQZD"
+    }
+    },
+    "summary": {
+    "total_count": 42
+    }
+    }
     }
      *
      * Example Response
@@ -117,7 +130,7 @@ class EventController extends BaseController
             /*
              * Parse event name.
              */
-            $eventURI = $data['event'];
+            $eventURI = self::validateEventUri($data['event']);
             $eventParts = explode('/', $eventURI);
             if(count($eventParts) == 2 || count($eventParts) > 3) {
                 // The package name is not correct.
@@ -210,13 +223,13 @@ class EventController extends BaseController
 
             $esIndex =
                 $this->getParameter('elasticsearch_index')
-                .'.'
+                .'.esp.'
                 .str_replace('/', '.', $package);
 
 
             $params = [
                 'index' => $esIndex,
-                'type'  => $eventURI,
+                'type'  => $event,
                 'body'  => $data['properties'],
             ];
             $response = $esClient->index($params);
