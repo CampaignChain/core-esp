@@ -41,7 +41,7 @@ class EspRestClient
         $this->logger = $logger;
     }
 
-    public function postEvent($event, $properties)
+    public function postEventAsync($event, $properties)
     {
         $this->logger->debug(
             "Attempt: Post event '".$event."' asynchronously to '"
@@ -78,7 +78,7 @@ class EspRestClient
                     'line' => $e->getLine(),
                     'trace' => $e->getTrace(),
                 ));
-                //throw new \Exception($e->getMessage());
+                throw new \Exception($e->getResponse()->getBody()->getContents());
             }
         );
 
