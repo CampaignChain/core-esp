@@ -18,6 +18,7 @@
 namespace CampaignChain\Core\ESPBundle\Controller\REST;
 
 use CampaignChain\CoreBundle\Controller\REST\BaseController;
+use CampaignChain\CoreBundle\Util\DateTimeUtil;
 use FOS\RestBundle\Controller\Annotations as REST;
 use Symfony\Component\Finder\Finder;
 use Symfony\Component\HttpFoundation\Request;
@@ -190,7 +191,9 @@ class EventController extends BaseController
             /*
              * Set or parse common fields.
              */
-            $now = new \DateTime();
+            /** @var DateTimeUtil $dateTimeUtil */
+            $dateTimeUtil = $this->get('campaignchain.core.util.datetime');
+            $now = $dateTimeUtil->getNow();
             $data['properties']['received_at'] = $now->format(\DateTime::ISO8601);
             if(!isset($data['properties']['timestamp'])){
                 $data['properties']['timestamp'] = $data['properties']['received_at'];
