@@ -31,8 +31,12 @@ class EspRestClient
         'event' => '/api/v1/esp/event',
     );
 
-    public function __construct($baseUrl, Logger $logger)
+    public function __construct($baseUrl, Logger $logger, $env)
     {
+        if($env == 'dev'){
+            $baseUrl = $baseUrl.'/app_dev.php';
+        }
+
         foreach($this->endpoints as $name => $uri){
             $this->endpoints[$name] = $baseUrl.$uri;
         }
@@ -41,7 +45,28 @@ class EspRestClient
         $this->logger = $logger;
     }
 
-    public function postEventAsync($event, $properties)
+    public function postEvent($event, $properties, $relationships = array())
+    {
+        $this->logger->debug(
+            "Attempt: Post event '".$event."' to '"
+            .$this->endpoints['event']."'"
+        );
+
+        $res = $this->client->post(
+            $this->endpoints['event'],
+            array('json' =>
+                array(
+                    'event' => $event,
+                    'properties' => $properties,
+                    'relationships' => $relationships,
+                )
+            )
+        );
+
+        return json_decode($res->getBody());
+    }
+
+    public function postEventAsync($event, $properties, $relationships = array())
     {
         $this->logger->debug(
             "Attempt: Post event '".$event."' asynchronously to '"
@@ -54,11 +79,12 @@ class EspRestClient
                 array(
                     'event' => $event,
                     'properties' => $properties,
+                    'relationships' => $relationships,
                 )
             )
         );
 
-        $promise->then(
+        return $promise->then(
             function (ResponseInterface $res) {
                 $body = json_decode($res->getBody());
                 if(is_array($body) && isset($body['error'])){
@@ -69,7 +95,6 @@ class EspRestClient
                     $this->logger->debug('Success: Posted asynchronously');
                 }
                 return $body;
-
             },
             function (RequestException $e) {
                 $this->logger->error($e->getResponse()->getBody()->getContents(), array(

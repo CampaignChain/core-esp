@@ -17,9 +17,12 @@
 
 namespace CampaignChain\Core\ESPBundle\Controller\REST;
 
+use CampaignChain\Core\ESPBundle\Service\BusinessRule;
+use CampaignChain\Core\ESPBundle\Service\RestExternalConnector;
 use CampaignChain\CoreBundle\Controller\REST\BaseController;
 use CampaignChain\CoreBundle\Util\DateTimeUtil;
 use FOS\RestBundle\Controller\Annotations as REST;
+use Symfony\Component\ExpressionLanguage\ExpressionLanguage;
 use Symfony\Component\Finder\Finder;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Session\Session;
@@ -111,6 +114,7 @@ class EventController extends BaseController
      */
     public function postEventAction(Request $request, $data)
     {
+        $this->logDebug('[START][ESP EVENT]');
         try {
             /*
              * Check if REST payload data contains all required data.
@@ -118,6 +122,8 @@ class EventController extends BaseController
             if(!isset($data['event']) || empty($data['event'])){
                 $this->throwException('Event name not defined', $data);
             }
+
+            $this->logDebug('Event: '.$data['event']);
 
             if(!isset($data['properties'])){
                 $this->throwException('Properties not defined', $data);
@@ -145,6 +151,8 @@ class EventController extends BaseController
                 $package = $eventParts[0] . '/' . $eventParts[1];
                 $event = $eventParts[2];
             }
+
+            unset($data['event']);
 
             /*
              * Load the Protobuf class files
@@ -200,17 +208,88 @@ class EventController extends BaseController
             }
 
             /*
-             * Call a bundle's ESP manager.
+             * Set context variables.
+             */
+            $data['context']['ip'] = $request->getClientIp();
+            $data['context']['locale'] = $request->getLocale();
+
+            /*
+             * Handle relationships.
+             *
+             * Relationships define IDs and other parameters which are relevant
+             * for finding related data sets or for applying business rules.
+             */
+            if(!isset($data['relationships'])){
+                $data['relationships'] = array();
+            }
+
+            /*
+             * Get the package's ESP configuration parameters.
              */
             try {
                 // Handle with grace if no managers have been defined at all.
-                $espParams = $this->getParameter('campaignchain.core.esp');
+                $confParamsAll = $this->getParameter('campaignchain.core.esp');
             } catch(\Exception $e) {}
 
-            if(isset($espParams) && is_array($espParams) && count($espParams)){
-                if(isset($espParams[$package]) && isset($espParams[$package]['manager'])){
-                    $espManager = $this->get($espParams[$package]['manager']);
-                    $data['properties'] = $espManager->detachEvent($event, $data['properties']);
+            /*
+             * Process the data.
+             */
+            if(
+                isset($confParamsAll) && is_array($confParamsAll)
+                && count($confParamsAll) && isset($confParamsAll[$package])
+            ) {
+                $this->logDebug('Package "'.$package.'" has configuration parameters.');
+                $confParams = $confParamsAll[$package];
+
+                /*
+                 * Call a bundle's ESP manager.
+                 */
+                if (isset($confParams['manager'])) {
+                    $this->logDebug('Package "'.$package.'" has an ESP Manager.');
+                    $espManager = $this->get($confParams['manager']);
+                    $data = $espManager->detachEvent($event, $data);
+                }
+
+                /*
+                 * Run the business logic defined for this event.
+                 */
+                if (
+                    isset($confParams['events'])
+                    && isset($confParams['events'][$event])
+                    && isset($confParams['events'][$event]['rules'])
+                ) {
+                    $this->logDebug('Package "'.$package.'" has business rules.');
+                    $exprLang = new ExpressionLanguage();
+
+                    /** @var BusinessRule $rulesService */
+                    $rulesService = $this->get('campaignchain.core.esp.business_rule');
+                    $rulesService->setData($data);
+
+                    $ruleGroups = $confParams['events'][$event]['rules'];
+
+                    foreach($ruleGroups as $ruleGroupName => $ruleGroup) {
+                        $this->logDebug('Executing rule group "'.$ruleGroupName.'"');
+                        $ruleResult = $rulesService->execute($ruleGroup['criteria']);
+                        $data['rules']['results'][$ruleGroupName] = $ruleResult;
+                        foreach($ruleGroup['tasks'] as $taskName => $taskConfig){
+                            $this->logDebug('Executing processor "'.$taskName.'"');
+                            $service = $this->get($taskConfig['service']);
+                            try {
+                                $exprLang->evaluate(
+                                    $taskConfig['method'], array(
+                                    'result' => $ruleResult,
+                                    'service' => $service,
+                                    'relationships' => $data['relationships'],
+                                ));
+                            } catch(\Exception $e){
+                                $this->logError($e->getMessage(), array(
+                                    'file' => $e->getFile(),
+                                    'line' => $e->getLine(),
+                                    'trace' => $e->getTrace(),
+                                ));
+                            }
+                        }
+                    }
                 }
             }
 
@@ -229,13 +308,14 @@ class EventController extends BaseController
                 .'.esp.'
                 .str_replace('/', '.', $package);
 
-
             $params = [
                 'index' => $esIndex,
                 'type'  => $event,
-                'body'  => $data['properties'],
+                'body'  => $data,
             ];
             $response = $esClient->index($params);
+
+            $this->logDebug('[END][ESP EVENT]');
 
 //            $response = $this->forward(
 //                $getActivityControllerMethod,

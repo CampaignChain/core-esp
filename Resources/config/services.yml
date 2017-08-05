@@ -16,5 +16,11 @@ services:
     campaignchain.core.esp.rest.client:
         class: CampaignChain\Core\ESPBundle\Service\EspRestClient
         arguments:
-            - "%campaignchain.api.local_scheme%://%campaignchain.api.local_host%"
+            - "%campaignchain.api.local_scheme%://%campaignchain.api.local_host%:%campaignchain.api.local_port%"
             - "@monolog.logger.external"
+            - "%kernel.environment%"
+
+    campaignchain.core.esp.business_rule:
+            class: CampaignChain\Core\ESPBundle\Service\BusinessRule
+            arguments:
+                - "@monolog.logger.external"
