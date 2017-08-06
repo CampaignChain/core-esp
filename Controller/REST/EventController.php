@@ -31,6 +31,7 @@ use FOS\RestBundle\Request\ParamFetcher;
 use Symfony\Component\HttpFoundation\Response;
 use Sensio\Bundle\FrameworkExtraBundle\Configuration\ParamConverter;
 use Elasticsearch\ClientBuilder;
+use CampaignChain\Core\ESPBundle\Validator\EventValidator;
 
 /**
  * @REST\NamePrefix("campaignchain_core_esp_rest_")
@@ -40,17 +41,50 @@ use Elasticsearch\ClientBuilder;
  */
 class EventController extends BaseController
 {
-    public static function validateEventUri($value)
+    protected $package;
+    protected $event;
+    protected $data;
+
+    protected function prepareData($data)
     {
-        // allow
-        // vendor/bundle-name/event
-        foreach (explode(',', $value) as $c) {
-            $c = trim(strtr($c, '/', '\\'));
-            if (!preg_match('/^(?:[a-zA-Z][a-zA-Z0-9_-]*\\\?)+((?:[a-zA-Z][a-zA-Z0-9_-]*\\\?))+([a-zA-Z][a-zA-Z0-9_]*)((?:[a-zA-Z][a-zA-Z0-9_]*?))+$/', $c)) {
-                throw new \InvalidArgumentException('Not a valid event URI. It should be in the format "[vendor-name]/[bundle-name]/[event-name]".');
-            }
+        /*
+         * Check if REST payload data contains all required data.
+         */
+        if(!isset($data['event']) || empty($data['event'])){
+            $this->throwException('Event name not defined', $data);
         }
-        return $value;
+
+        $this->logDebug('Event: '.$data['event']);
+
+        if(!isset($data['properties'])){
+            $this->throwException('Properties not defined', $data);
+        }
+
+        $properties = $data['properties'];
+        if(!is_array($properties) || !count($properties)){
+            $this->throwException('Properties data is empty', $data);
+        }
+
+        /*
+         * Parse event name.
+         */
+        EventValidator::isValidUri($data['event']);
+        $eventParts = explode('/', $data['event']);
+        if(count($eventParts) == 2 || count($eventParts) > 3) {
+            // The package name is not correct.
+            $errMsg = 'The event URI is not correct. '
+                .'It should consist of either just the event name or '
+                .'the event name prefixed with a CampaignChain package name.';
+            $this->throwException($errMsg, $data);
+        }
+        if(count($eventParts) > 1) {
+            //
+            $this->package = $eventParts[0] . '/' . $eventParts[1];
+            $this->event = $eventParts[2];
+        }
+
+        unset($data['event']);
+        $this->data = $data;
     }
 
     /**
@@ -116,58 +150,22 @@ class EventController extends BaseController
     {
         $this->logDebug('[START][ESP EVENT]');
         try {
-            /*
-             * Check if REST payload data contains all required data.
-             */
-            if(!isset($data['event']) || empty($data['event'])){
-                $this->throwException('Event name not defined', $data);
-            }
-
-            $this->logDebug('Event: '.$data['event']);
-
-            if(!isset($data['properties'])){
-                $this->throwException('Properties not defined', $data);
-            }
-
-            $properties = $data['properties'];
-            if(!is_array($properties) || !count($properties)){
-                $this->throwException('Properties data is empty', $data);
-            }
-
-            /*
-             * Parse event name.
-             */
-            $eventURI = self::validateEventUri($data['event']);
-            $eventParts = explode('/', $eventURI);
-            if(count($eventParts) == 2 || count($eventParts) > 3) {
-                // The package name is not correct.
-                $errMsg = 'The event URI is not correct. '
-                    .'It should consist of either just the event name or '
-                    .'the event name prefixed with a CampaignChain package name.';
-                $this->throwException($errMsg, $data);
-            }
-            if(count($eventParts) > 1) {
-                //
-                $package = $eventParts[0] . '/' . $eventParts[1];
-                $event = $eventParts[2];
-            }
-
-            unset($data['event']);
+            $this->prepareData($data);
 
             /*
              * Load the Protobuf class files
              */
-            $namespace = '\\'.$event.'\\';
+            $namespace = '\\'.$this->event.'\\';
             $generatedProtoPath =
                 $this->getParameter('campaignchain_protobuf.php_out')
-                .DIRECTORY_SEPARATOR.$package;
+                .DIRECTORY_SEPARATOR.$this->package;
 
             $protoMetadataPath = $generatedProtoPath.DIRECTORY_SEPARATOR.'GPBMetadata';
-            $protoMetadataFile = $protoMetadataPath.DIRECTORY_SEPARATOR.$event.'.php';
+            $protoMetadataFile = $protoMetadataPath.DIRECTORY_SEPARATOR.$this->event.'.php';
 
             if(!file_exists($protoMetadataFile)){
                 $this->throwException(
-                    'Proto for event "'.$event.'" does not exist in package "'.$package.'"',
+                    'Proto for event "'.$this->event.'" does not exist in package "'.$this->package.'"',
                     $data
                 );
             }
@@ -182,18 +180,18 @@ class EventController extends BaseController
             /*
              * Instantiate the Proto class.
              */
-            $protoClass = $namespace.$event;
+            $protoClass = $namespace.$this->event;
             /** @var \Likes\Likes $protoObj */
             $protoObj = new $protoClass();
 
             // Check if data is valid.
-            $protoObj->mergeFromJsonString(json_encode($data['properties']));
+            $protoObj->mergeFromJsonString(json_encode($this->data['properties']));
 
             // Filter data through Proto to omit data points not defined there.
-            $data['properties'] = json_decode($protoObj->serializeToJsonString(), true);
+            $this->data['properties'] = json_decode($protoObj->serializeToJsonString(), true);
 
-            if(!is_array($data['properties']) || !count($data['properties'])){
-                $this->throwException("None of the properties match the .proto definition for event '".$event."'");
+            if(!is_array($this->data['properties']) || !count($this->data['properties'])){
+                $this->throwException("None of the properties match the .proto definition for event '".$this->event."'");
             }
 
             /*
@@ -202,16 +200,16 @@ class EventController extends BaseController
             /** @var DateTimeUtil $dateTimeUtil */
             $dateTimeUtil = $this->get('campaignchain.core.util.datetime');
             $now = $dateTimeUtil->getNow();
-            $data['properties']['received_at'] = $now->format(\DateTime::ISO8601);
-            if(!isset($data['properties']['timestamp'])){
-                $data['properties']['timestamp'] = $data['properties']['received_at'];
+            $this->data['properties']['received_at'] = $now->format(\DateTime::ISO8601);
+            if(!isset($this->data['properties']['timestamp'])){
+                $this->data['properties']['timestamp'] = $this->data['properties']['received_at'];
             }
 
             /*
              * Set context variables.
              */
-            $data['context']['ip'] = $request->getClientIp();
-            $data['context']['locale'] = $request->getLocale();
+            $this->data['context']['ip'] = $request->getClientIp();
+            $this->data['context']['locale'] = $request->getLocale();
 
             /*
              * Handle relationships.
@@ -219,8 +217,8 @@ class EventController extends BaseController
              * Relationships define IDs and other parameters which are relevant
              * for finding related data sets or for applying business rules.
              */
-            if(!isset($data['relationships'])){
-                $data['relationships'] = array();
+            if(!isset($this->data['relationships'])){
+                $this->data['relationships'] = array();
             }
 
             /*
@@ -236,18 +234,21 @@ class EventController extends BaseController
              */
             if(
                 isset($confParamsAll) && is_array($confParamsAll)
-                && count($confParamsAll) && isset($confParamsAll[$package])
+                && count($confParamsAll) && isset($confParamsAll[$this->package])
             ) {
-                $this->logDebug('Package "'.$package.'" has configuration parameters.');
-                $confParams = $confParamsAll[$package];
+                $this->logDebug('Package "'.$this->package.'" has configuration parameters.');
+                $confParams = $confParamsAll[$this->package];
 
                 /*
                  * Call a bundle's ESP manager.
                  */
                 if (isset($confParams['manager'])) {
-                    $this->logDebug('Package "'.$package.'" has an ESP Manager.');
+                    $this->logDebug('Package "'.$this->package.'" has an ESP Manager.');
                     $espManager = $this->get($confParams['manager']);
-                    $data = $espManager->detachEvent($event, $data);
+                    $this->data = $espManager->detachEvent($this->event, $this->data);
+
+                    // Check if data returned by ESP Manager is valid.
+                    $protoObj->mergeFromJsonString(json_encode($this->data['properties']));
                 }
 
                 /*
@@ -255,39 +256,40 @@ class EventController extends BaseController
                  */
                 if (
                     isset($confParams['events'])
-                    && isset($confParams['events'][$event])
-                    && isset($confParams['events'][$event]['rules'])
+                    && isset($confParams['events'][$this->event])
+                    && isset($confParams['events'][$this->event]['rules'])
                 ) {
-                    $this->logDebug('Package "'.$package.'" has business rules.');
+                    $this->logDebug('Package "'.$this->package.'" has business rules.');
                     $exprLang = new ExpressionLanguage();
 
                     /** @var BusinessRule $rulesService */
                     $rulesService = $this->get('campaignchain.core.esp.business_rule');
-                    $rulesService->setData($data);
+                    $rulesService->setData($this->data);
 
-                    $ruleGroups = $confParams['events'][$event]['rules'];
+                    $ruleGroups = $confParams['events'][$this->event]['rules'];
 
                     foreach($ruleGroups as $ruleGroupName => $ruleGroup) {
                         $this->logDebug('Executing rule group "'.$ruleGroupName.'"');
-                        $ruleResult = $rulesService->execute($ruleGroup['criteria']);
-                        $data['rules']['results'][$ruleGroupName] = $ruleResult;
-                        foreach($ruleGroup['tasks'] as $taskName => $taskConfig){
-                            $this->logDebug('Executing processor "'.$taskName.'"');
-                            $service = $this->get($taskConfig['service']);
-                            try {
+                        try{
+                            $ruleResult = $rulesService->execute($ruleGroup['criteria']);
+                            $this->data['rules']['results'][$ruleGroupName] = $ruleResult;
+                            foreach($ruleGroup['tasks'] as $taskName => $taskConfig){
+                                $this->logDebug('Executing processor "'.$taskName.'"');
+                                $service = $this->get($taskConfig['service']);
                                 $exprLang->evaluate(
                                     $taskConfig['method'], array(
                                     'result' => $ruleResult,
                                     'service' => $service,
-                                    'relationships' => $data['relationships'],
-                                ));
-                            } catch(\Exception $e){
-                                $this->logError($e->getMessage(), array(
-                                    'file' => $e->getFile(),
-                                    'line' => $e->getLine(),
-                                    'trace' => $e->getTrace(),
+                                    'properties' => $this->data['properties'],
+                                    'relationships' => $this->data['relationships'],
                                 ));
                             }
+                        } catch(\Exception $e){
+                            $this->logError($e->getMessage(), array(
+                                'file' => $e->getFile(),
+                                'line' => $e->getLine(),
+                                'trace' => $e->getTrace(),
+                            ));
                         }
                     }
                 }
@@ -306,12 +308,12 @@ class EventController extends BaseController
             $esIndex =
                 $this->getParameter('elasticsearch_index')
                 .'.esp.'
-                .str_replace('/', '.', $package);
+                .str_replace('/', '.', $this->package);
 
             $params = [
                 'index' => $esIndex,
-                'type'  => $event,
-                'body'  => $data,
+                'type'  => $this->event,
+                'body'  => $this->data,
             ];
             $response = $esClient->index($params);
 

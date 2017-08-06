@@ -17,6 +17,7 @@
 
 namespace CampaignChain\Core\ESPBundle\Service;
 
+use CampaignChain\Core\ESPBundle\Validator\EventValidator;
 use Monolog\Logger;
 use Symfony\Component\ExpressionLanguage\ExpressionLanguage;
 
@@ -52,36 +53,43 @@ class BusinessRule
      */
     public function execute(array $expressions)
     {
-        $credits = 0;
+        $sum = 0;
         $exprLang = new ExpressionLanguage();
 
-        foreach($expressions as $node => $clauses){
+        foreach($expressions as $node => $clauses) {
             $value = NULL;
 
-            // Get the value of the array node.
-            eval(
-                'if(isset($this->data["properties"]'.$node.') && !empty($this->data["properties"]'.$node.')){'
-                    .'$value = $this->data["properties"]'.$node.';'
-                .'}'
-            );
+            if ($node != 'event'){
+                EventValidator::isValidPropertyPath($node);
 
-            if($value != NULL) {
-                // Evaluate the clause and assign points accordingly.
-                $credit = 0;
-                foreach ($clauses as $clause) {
-                    $credit = (int)$exprLang->evaluate(
-                        $clause, array(
-                            'value' => $value,
-                            'relationships' => $this->data['relationships'],
-                    ));
-                    if($credit != 0) {
-                        $credits = $credits + $credit;
-                        break;
-                    }
+                // Get the value of the array node.
+                eval(
+                    'if(isset($this->data["properties"]' . $node . ') && !empty($this->data["properties"]' . $node . ')){'
+                    . '$value = $this->data["properties"]' . $node . ';'
+                    . '}'
+                );
+            }
+
+            if($value == NULL && $node != 'event') {
+                return $sum;
+            }
+
+            // Evaluate the clause and assign points accordingly.
+            $result = 0;
+            foreach ($clauses as $clause) {
+                $result = (int)$exprLang->evaluate(
+                    $clause, array(
+                        'value' => $value,
+                        'relationships' => $this->data['relationships'],
+                ));
+                if($result != 0) {
+                    $sum = $sum + $result;
+                    break;
                 }
             }
+
         }
 
-        return $credits;
+        return $sum;
     }
 }
