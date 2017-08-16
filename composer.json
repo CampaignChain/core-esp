@@ -17,7 +17,7 @@
         "docs": "http://doc.campaignchain.com"
     },
     "require": {
-        "campaignchain/protobuf": "dev-master",
+        "campaignchain/protobuf": "1.0.x-dev",
         "elasticsearch/elasticsearch": "~5.0",
         "friendsofsymfony/elastica-bundle": "~4.0"
     },
