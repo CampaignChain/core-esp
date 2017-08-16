@@ -111,24 +111,12 @@ class EventController extends BaseController
      * =============
      *
     {
-    "event": "campaignchain/operation-facebook/Likes",
-    "properties": {
-    "data": [
-    {
-    "id": "100000000000000000",
-    "name": "John Doe"
-    }
-    ],
-    "paging": {
-    "cursors": {
-    "before": "MTAyMDM1MzIxNjM3MjcwNjQZD",
-    "after": "MTAyMDM1MzIxNjM3MjcwNjQZD"
-    }
-    },
-    "summary": {
-    "total_count": 42
-    }
-    }
+        "event": "mycompany/channel-mysite/UserRegistered",
+        "properties": {
+            "username": "joe",
+            "email": "joe@example.com",
+            "user_id": "42"
+        }
     }
      *
      * Example Response
