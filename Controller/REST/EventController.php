@@ -298,24 +298,26 @@ class EventController extends BaseController
 
                     foreach($ruleGroups as $ruleGroupName => $ruleGroup) {
                         $this->logDebug('Executing rule group "'.$ruleGroupName.'"');
-                        try{
-                            foreach($ruleGroup['tasks'] as $taskName => $taskConfig){
-                                $this->logDebug('Executing processor "'.$taskName.'"');
-                                $service = $this->get($taskConfig['service']);
-                                $exprLang->evaluate(
-                                    $taskConfig['method'], array(
-                                    'result' => $this->data['rules']['results'][$ruleGroupName],
-                                    'service' => $service,
-                                    'properties' => $this->data['properties'],
-                                    'relationships' => $this->data['relationships'],
+                        if(isset($ruleGroup['tasks']) && is_array($ruleGroup['tasks'])) {
+                            try {
+                                foreach ($ruleGroup['tasks'] as $taskName => $taskConfig) {
+                                    $this->logDebug('Executing processor "' . $taskName . '"');
+                                    $service = $this->get($taskConfig['service']);
+                                    $exprLang->evaluate(
+                                        $taskConfig['method'], array(
+                                        'result' => $this->data['rules']['results'][$ruleGroupName],
+                                        'service' => $service,
+                                        'properties' => $this->data['properties'],
+                                        'relationships' => $this->data['relationships'],
+                                    ));
+                                }
+                            } catch (\Exception $e) {
+                                $this->logError($e->getMessage(), array(
+                                    'file' => $e->getFile(),
+                                    'line' => $e->getLine(),
+                                    'trace' => $e->getTrace(),
                                 ));
                             }
-                        } catch(\Exception $e){
-                            $this->logError($e->getMessage(), array(
-                                'file' => $e->getFile(),
-                                'line' => $e->getLine(),
-                                'trace' => $e->getTrace(),
-                            ));
                         }
                     }
                 }
