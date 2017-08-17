@@ -240,26 +240,14 @@ class EventController extends BaseController
                 $confParams = $confParamsAll[$this->package];
 
                 /*
-                 * Call a bundle's ESP manager.
-                 */
-                if (isset($confParams['manager'])) {
-                    $this->logDebug('Package "'.$this->package.'" has an ESP Manager.');
-                    $espManager = $this->get($confParams['manager']);
-                    $this->data = $espManager->detachEvent($this->event, $this->data);
-
-                    // Check if data returned by ESP Manager is valid.
-                    $protoObj->mergeFromJsonString(json_encode($this->data['properties']));
-                }
-
-                /*
-                 * Run the business logic defined for this event.
+                 * Run the rule groups defined for this event.
                  */
                 if (
                     isset($confParams['events'])
                     && isset($confParams['events'][$this->event])
                     && isset($confParams['events'][$this->event]['rules'])
                 ) {
-                    $this->logDebug('Package "'.$this->package.'" has business rules.');
+                    $this->logDebug('Executing rule groups for package "'.$this->package.'".');
                     $exprLang = new ExpressionLanguage();
 
                     /** @var BusinessRule $rulesService */
@@ -273,12 +261,50 @@ class EventController extends BaseController
                         try{
                             $ruleResult = $rulesService->execute($ruleGroup['criteria']);
                             $this->data['rules']['results'][$ruleGroupName] = $ruleResult;
+                        } catch(\Exception $e){
+                            $this->logError($e->getMessage(), array(
+                                'file' => $e->getFile(),
+                                'line' => $e->getLine(),
+                                'trace' => $e->getTrace(),
+                            ));
+                        }
+                    }
+                }
+
+                /*
+                 * Call a bundle's ESP manager.
+                 */
+                if (isset($confParams['manager'])) {
+                    $this->logDebug('Package "'.$this->package.'" has an ESP Manager.');
+                    $espManager = $this->get($confParams['manager']);
+                    $this->data = $espManager->detachEvent($this->event, $this->data);
+
+                    // Check if data returned by ESP Manager is valid.
+                    $protoObj->mergeFromJsonString(json_encode($this->data['properties']));
+                }
+
+                /*
+                 * Run the tasks defined for a rule group.
+                 */
+                if (
+                    isset($confParams['events'])
+                    && isset($confParams['events'][$this->event])
+                    && isset($confParams['events'][$this->event]['rules'])
+                ) {
+                    $this->logDebug('Executing tasks of rule groups for package "'.$this->package.'".');
+                    $exprLang = new ExpressionLanguage();
+
+                    $ruleGroups = $confParams['events'][$this->event]['rules'];
+
+                    foreach($ruleGroups as $ruleGroupName => $ruleGroup) {
+                        $this->logDebug('Executing rule group "'.$ruleGroupName.'"');
+                        try{
                             foreach($ruleGroup['tasks'] as $taskName => $taskConfig){
                                 $this->logDebug('Executing processor "'.$taskName.'"');
                                 $service = $this->get($taskConfig['service']);
                                 $exprLang->evaluate(
                                     $taskConfig['method'], array(
-                                    'result' => $ruleResult,
+                                    'result' => $this->data['rules']['results'][$ruleGroupName],
                                     'service' => $service,
                                     'properties' => $this->data['properties'],
                                     'relationships' => $this->data['relationships'],
