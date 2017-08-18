@@ -248,7 +248,6 @@ class EventController extends BaseController
                     && isset($confParams['events'][$this->event]['rules'])
                 ) {
                     $this->logDebug('Executing rule groups for package "'.$this->package.'".');
-                    $exprLang = new ExpressionLanguage();
 
                     /** @var BusinessRule $rulesService */
                     $rulesService = $this->get('campaignchain.core.esp.business_rule');
@@ -261,6 +260,7 @@ class EventController extends BaseController
                         try{
                             $ruleResult = $rulesService->execute($ruleGroup['criteria']);
                             $this->data['rules']['results'][$ruleGroupName] = $ruleResult;
+                            $this->logDebug($ruleGroupName.' = '.$ruleResult);
                         } catch(\Exception $e){
                             $this->logError($e->getMessage(), array(
                                 'file' => $e->getFile(),

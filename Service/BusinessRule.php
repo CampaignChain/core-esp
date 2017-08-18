@@ -70,8 +70,9 @@ class BusinessRule
                 );
             }
 
+            //eval('echo "NODE VALUE: ".$this->data["properties"]' . $node.';');
             if($value == NULL && $node != 'event') {
-                return $sum;
+                continue;
             }
 
             // Evaluate the clause and assign points accordingly.
