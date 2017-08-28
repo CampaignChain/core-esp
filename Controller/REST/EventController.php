@@ -249,14 +249,17 @@ class EventController extends BaseController
                 ) {
                     $this->logDebug('Executing rule groups for package "'.$this->package.'".');
 
-                    /** @var BusinessRule $rulesService */
-                    $rulesService = $this->get('campaignchain.core.esp.business_rule');
-                    $rulesService->setData($this->data);
-
                     $ruleGroups = $confParams['events'][$this->event]['rules'];
 
                     foreach($ruleGroups as $ruleGroupName => $ruleGroup) {
+                        /** @var BusinessRule $rulesService */
+                        $rulesService = $this->get(
+                            $ruleGroup['rule']['service']
+                        );
+                        $rulesService->setData($this->data);
+
                         $this->logDebug('Executing rule group "'.$ruleGroupName.'"');
+
                         try{
                             $ruleResult = $rulesService->execute($ruleGroup['criteria']);
                             $this->data['rules']['results'][$ruleGroupName] = $ruleResult;
@@ -296,6 +299,8 @@ class EventController extends BaseController
 
                     $ruleGroups = $confParams['events'][$this->event]['rules'];
 
+                    $tasksResult = array();
+
                     foreach($ruleGroups as $ruleGroupName => $ruleGroup) {
                         $this->logDebug('Executing rule group "'.$ruleGroupName.'"');
                         if(isset($ruleGroup['tasks']) && is_array($ruleGroup['tasks'])) {
@@ -303,12 +308,13 @@ class EventController extends BaseController
                                 foreach ($ruleGroup['tasks'] as $taskName => $taskConfig) {
                                     $this->logDebug('Executing processor "' . $taskName . '"');
                                     $service = $this->get($taskConfig['service']);
-                                    $exprLang->evaluate(
+                                    $tasksResult[$taskName] = $exprLang->evaluate(
                                         $taskConfig['method'], array(
                                         'result' => $this->data['rules']['results'][$ruleGroupName],
                                         'service' => $service,
                                         'properties' => $this->data['properties'],
                                         'relationships' => $this->data['relationships'],
+                                        'tasks' => $tasksResult,
                                     ));
                                 }
                             } catch (\Exception $e) {
