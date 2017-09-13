@@ -263,7 +263,7 @@ class EventController extends BaseController
                         try{
                             $ruleResult = $rulesService->execute($ruleGroup['criteria']);
                             $this->data['rules']['results'][$ruleGroupName] = $ruleResult;
-                            $this->logDebug($ruleGroupName.' = '.$ruleResult);
+                            $this->logDebug($ruleGroupName.' = '.json_encode($ruleResult));
                         } catch(\Exception $e){
                             $this->logError($e->getMessage(), array(
                                 'file' => $e->getFile(),

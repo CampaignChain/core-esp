@@ -24,3 +24,7 @@ services:
             class: CampaignChain\Core\ESPBundle\Service\BusinessRule
             arguments:
                 - "@monolog.logger.external"
+    campaignchain.core.esp.data_mapper:
+            class: CampaignChain\Core\ESPBundle\Service\DataMapper
+            arguments:
+                - "@monolog.logger.external"
