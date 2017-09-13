@@ -306,8 +306,9 @@ class EventController extends BaseController
                         if(isset($ruleGroup['tasks']) && is_array($ruleGroup['tasks'])) {
                             try {
                                 foreach ($ruleGroup['tasks'] as $taskName => $taskConfig) {
-                                    $this->logDebug('Executing processor "' . $taskName . '"');
+                                    $this->logDebug('Executing task "' . $taskName . '"');
                                     $service = $this->get($taskConfig['service']);
+                                    $this->logDebug('Results of previous tasks: '.json_encode($tasksResult));
                                     $tasksResult[$taskName] = $exprLang->evaluate(
                                         $taskConfig['method'], array(
                                         'result' => $this->data['rules']['results'][$ruleGroupName],
