@@ -20,6 +20,7 @@ namespace CampaignChain\Core\ESPBundle\Controller\REST;
 use CampaignChain\Core\ESPBundle\Service\BusinessRule;
 use CampaignChain\Core\ESPBundle\Service\RestExternalConnector;
 use CampaignChain\CoreBundle\Controller\REST\BaseController;
+use CampaignChain\CoreBundle\Service\Elasticsearch;
 use CampaignChain\CoreBundle\Util\DateTimeUtil;
 use FOS\RestBundle\Controller\Annotations as REST;
 use Symfony\Component\ExpressionLanguage\ExpressionLanguage;
@@ -333,12 +334,9 @@ class EventController extends BaseController
             /*
              * Put data into Elasticsearch
              */
-            $esClient = ClientBuilder::create()->setHosts(
-                array(
-                    $this->getParameter('elasticsearch_scheme').'://'.$this->getParameter('elasticsearch_host')
-                    .':'
-                    .$this->getParameter('elasticsearch_port'))
-            )->build();
+            /** @var Elasticsearch $esService */
+            $esService = $this->get('campaignchain.core.service.elasticsearch');
+            $esClient = $esService->getClient();
 
             $esIndex =
                 $this->getParameter('elasticsearch_index')
