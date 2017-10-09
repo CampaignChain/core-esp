@@ -28,7 +28,7 @@ use CampaignChain\CoreBundle\Util\VariableUtil;
 /**
  * Auto-generated Migration: Please modify to your needs!
  */
-class Version20171008131313 extends AbstractMigration implements ContainerAwareInterface
+class Version20171009131313 extends AbstractMigration implements ContainerAwareInterface
 {
     /**
      * @var ContainerInterface
@@ -41,7 +41,8 @@ class Version20171008131313 extends AbstractMigration implements ContainerAwareI
     }
 
     /**
-     * Rename timestamp and received_at fields.
+     * Move timestamp and recievedAt fields from context.* to top level and
+     * remove context.ip field to re-create it with ip format.
      *
      * @param Schema $schema
      */
@@ -61,20 +62,25 @@ class Version20171008131313 extends AbstractMigration implements ContainerAwareI
         if(count($indices)){
             // Ingest the rename pipelines
             $params = [
-                'id' => 'rename_context_timestamps',
+                'id' => 'rename_context_timestamps_and_remove_ip',
                 'body' => [
-                    'description' => 'Rename properties.timestamp/received_at to context.timestamp/receivedAt',
+                    'description' => 'Rename context.timestamp/received_at to timestamp/receivedAt and delete context.ip',
                     'processors' => [
                         0 => [
                             'rename' => [
-                                'field' => 'properties.timestamp',
-                                'target_field' => 'context.timestamp'
+                                'field' => 'context.timestamp',
+                                'target_field' => 'timestamp'
                             ],
                         ],
                         1 => [
                             'rename' => [
-                                'field' => 'properties.received_at',
-                                'target_field' => 'context.receivedAt'
+                                'field' => 'context.receivedAt',
+                                'target_field' => 'receivedAt'
+                            ],
+                        ],
+                        2 => [
+                            'remove' => [
+                                'field' => 'context.ip'
                             ],
                         ],
                     ],
@@ -104,7 +110,7 @@ class Version20171008131313 extends AbstractMigration implements ContainerAwareI
                         ],
                         'dest' => [
                             'index' => $esIndexNew,
-                            'pipeline' => 'rename_context_timestamps'
+                            'pipeline' => 'rename_context_timestamps_and_remove_ip'
                         ],
                     ],
                 ];

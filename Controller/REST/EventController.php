@@ -201,16 +201,20 @@ class EventController extends BaseController
             /** @var DateTimeUtil $dateTimeUtil */
             $dateTimeUtil = $this->get('campaignchain.core.util.datetime');
             $now = $dateTimeUtil->getNow();
-            $this->data['context']['receivedAt'] = $now->format(\DateTime::ISO8601);
-            if(!isset($this->data['context']['timestamp'])){
-                $this->data['context']['timestamp'] = $this->data['context']['receivedAt'];
+            $this->data['receivedAt'] = $now->format(\DateTime::ISO8601);
+            if(!isset($this->data['timestamp'])){
+                $this->data['timestamp'] = $this->data['receivedAt'];
             }
 
             /*
              * Set context variables.
              */
-            $this->data['context']['ip'] = $request->getClientIp();
-            $this->data['context']['locale'] = $request->getLocale();
+            if(!empty($request->getClientIp())) {
+                $this->data['context']['ip'] = $request->getClientIp();
+            }
+            if(!empty($request->getLocale())) {
+                $this->data['context']['locale'] = $request->getLocale();
+            }
 
             /*
              * Handle relationships.
