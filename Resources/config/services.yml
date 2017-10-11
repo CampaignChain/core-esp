@@ -15,10 +15,10 @@
 parameters:
     campaignchain.core.esp.common_fields:
         properties:
+            timestamp: {type: date, format: "YYYY-MM-DD'T'HH:mm:ssZ"}
+            receivedAt: {type: date, format: "YYYY-MM-DD'T'HH:mm:ssZ"}
             context:
                 properties:
-                    timestamp: {type: date, format: "YYYY-MM-DD'T'HH:mm:ssZ"}
-                    receivedAt: {type: date, format: "YYYY-MM-DD'T'HH:mm:ssZ"}
                     ip: {type: ip}
                     locale: {type: keyword}
 
