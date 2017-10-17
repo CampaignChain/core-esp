@@ -201,7 +201,7 @@ class EventController extends BaseController
             /** @var DateTimeUtil $dateTimeUtil */
             $dateTimeUtil = $this->get('campaignchain.core.util.datetime');
             $now = $dateTimeUtil->getNow();
-            $this->data['receivedAt'] = $now->format(\DateTime::ISO8601);
+            echo $this->data['receivedAt'] = $now->format(\DateTime::ISO8601);
             if(!isset($this->data['timestamp'])){
                 $this->data['timestamp'] = $this->data['receivedAt'];
             }
