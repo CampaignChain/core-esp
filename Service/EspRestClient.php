@@ -17,6 +17,7 @@
 
 namespace CampaignChain\Core\ESPBundle\Service;
 
+use CampaignChain\Core\ESPBundle\Controller\REST\EventController;
 use GuzzleHttp\Client;
 use Monolog\Logger;
 use Psr\Http\Message\ResponseInterface;
@@ -45,43 +46,53 @@ class EspRestClient
         $this->logger = $logger;
     }
 
-    public function postEvent($event, $properties, $relationships = array())
+    public function postEvent($event, $properties, $relationships = array(), $workflow = null)
     {
         $this->logger->debug(
             "Attempt: Post event '".$event."' to '"
             .$this->endpoints['event']."'"
         );
 
+        $params['json'] = array(
+                'event' => $event,
+                'properties' => $properties,
+                'relationships' => $relationships,
+            );
+
+        if($workflow){
+            $params['headers'] = array(
+                EventController::WORKFLOW_HEADER => $workflow,
+            );
+        }
+
         $res = $this->client->post(
-            $this->endpoints['event'],
-            array('json' =>
-                array(
-                    'event' => $event,
-                    'properties' => $properties,
-                    'relationships' => $relationships,
-                )
-            )
+            $this->endpoints['event'], $params
         );
 
         return json_decode($res->getBody());
     }
 
-    public function postEventAsync($event, $properties, $relationships = array())
+    public function postEventAsync($event, $properties, $relationships = array(), $workflow)
     {
         $this->logger->debug(
             "Attempt: Post event '".$event."' asynchronously to '"
             .$this->endpoints['event']."'"
         );
 
+        $params['json'] = array(
+            'event' => $event,
+            'properties' => $properties,
+            'relationships' => $relationships,
+        );
+
+        if($workflow){
+            $params['headers'] = array(
+                EventController::WORKFLOW_HEADER => $workflow,
+            );
+        }
+
         $promise = $this->client->postAsync(
-            $this->endpoints['event'],
-            array('json' =>
-                array(
-                    'event' => $event,
-                    'properties' => $properties,
-                    'relationships' => $relationships,
-                )
-            )
+            $this->endpoints['event'], $params
         );
 
         return $promise->then(

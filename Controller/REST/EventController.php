@@ -42,9 +42,12 @@ use CampaignChain\Core\ESPBundle\Validator\EventValidator;
  */
 class EventController extends BaseController
 {
+    const WORKFLOW_HEADER = 'X-CampaignChain-Workflow';
+
     protected $package;
     protected $event;
     protected $data;
+    protected $workflow;
 
     protected function prepareData($data)
     {
@@ -154,6 +157,15 @@ class EventController extends BaseController
             $this->prepareData($data);
 
             /*
+             * Set the workflow name, either new or based on header information.
+             */
+            if($request->headers->has(self::WORKFLOW_HEADER)){
+                $this->workflow = $request->headers->get(self::WORKFLOW_HEADER);
+            } else {
+                $this->workflow = $this->package;
+            }
+
+            /*
              * Load the Protobuf class files
              */
             $namespace = '\\'.$this->event.'\\';
@@ -237,99 +249,101 @@ class EventController extends BaseController
             /*
              * Process the data.
              */
-            if(
-                isset($confParamsAll) && is_array($confParamsAll)
-                && count($confParamsAll) && isset($confParamsAll[$this->package])
-            ) {
-                $this->logDebug('Package "'.$this->package.'" has configuration parameters.');
-                $confParams = $confParamsAll[$this->package];
+            $espManager = null;
+            $ruleGroups = null;
 
-                /*
-                 * Run the rule groups defined for this event.
-                 */
-                if (
-                    isset($confParams['events'])
-                    && isset($confParams['events'][$this->event])
-                    && isset($confParams['events'][$this->event]['rules'])
-                ) {
-                    $this->logDebug('Executing rule groups for package "'.$this->package.'".');
+            if(isset($confParamsAll) && is_array($confParamsAll) && count($confParamsAll)) {
+                if (isset($confParamsAll[$this->package]['manager'])) {
+                    $this->logDebug('Package "'.$this->package.'" has an ESP Manager.');
+                    $espManager = $this->get($confParamsAll[$this->package]['manager']);
+                }
 
-                    $ruleGroups = $confParams['events'][$this->event]['rules'];
+                if(isset($confParamsAll[$this->workflow])) {
+                    $this->logDebug('Workflow "' . $this->workflow . '" has configuration parameters.');
+                    $workflowParams = $confParamsAll[$this->workflow];
 
-                    foreach($ruleGroups as $ruleGroupName => $ruleGroup) {
-                        /** @var BusinessRule $rulesService */
-                        $rulesService = $this->get(
-                            $ruleGroup['rule']['service']
-                        );
-                        $rulesService->setData($this->data);
+                    if (
+                        isset($workflowParams['events'])
+                        && isset($workflowParams['events'][$this->event])
+                        && isset($workflowParams['events'][$this->event]['rules'])
+                    ) {
+                        $this->logDebug('Workflow "' . $this->workflow . '" has event rule groups defined.');
 
-                        $this->logDebug('Executing rule group "'.$ruleGroupName.'"');
+                        $ruleGroups = $workflowParams['events'][$this->event]['rules'];
+                    }
+                }
+            }
 
-                        try{
-                            $ruleResult = $rulesService->execute($ruleGroup['criteria']);
-                            $this->data['rules']['results'][$ruleGroupName] = $ruleResult;
-                            $this->logDebug($ruleGroupName.' = '.json_encode($ruleResult));
-                        } catch(\Exception $e){
+            /*
+             * Run the rule groups defined for this event.
+             */
+            if(isset($ruleGroups) && is_array($ruleGroups) && count($ruleGroups)){
+                foreach($ruleGroups as $ruleGroupName => $ruleGroup) {
+                    /** @var BusinessRule $rulesService */
+                    $rulesService = $this->get(
+                        $ruleGroup['rule']['service']
+                    );
+                    $rulesService->setData($this->data);
+
+                    $this->logDebug('Executing rule group "'.$ruleGroupName.'"');
+
+                    try{
+                        $ruleResult = $rulesService->execute($ruleGroup['criteria']);
+                        $this->data['rules']['results'][$ruleGroupName] = $ruleResult;
+                        $this->logDebug($ruleGroupName.' = '.json_encode($ruleResult));
+                    } catch(\Exception $e){
+                        $this->logError($e->getMessage(), array(
+                            'file' => $e->getFile(),
+                            'line' => $e->getLine(),
+                            'trace' => $e->getTrace(),
+                        ));
+                    }
+                }
+            }
+
+            /*
+             * Call a bundle's ESP manager.
+             */
+            if (isset($espManager)) {
+                $this->logDebug('Executing ESP Manager of package "'.$this->package.'".');
+                $this->data = $espManager->detachEvent($this->event, $this->data, $this->workflow);
+
+                // Check if data returned by ESP Manager is valid.
+                $protoObj->mergeFromJsonString(json_encode($this->data['properties']));
+            }
+
+            /*
+             * Run the tasks defined for a rule group.
+             */
+            if(isset($ruleGroups) && is_array($ruleGroups) && count($ruleGroups)){
+                $this->logDebug('Executing tasks of rule groups for workflow "'.$this->workflow.'".');
+                $exprLang = new ExpressionLanguage();
+
+                $tasksResult = array();
+
+                foreach($ruleGroups as $ruleGroupName => $ruleGroup) {
+                    $this->logDebug('Executing rule group "'.$ruleGroupName.'"');
+                    if(isset($ruleGroup['tasks']) && is_array($ruleGroup['tasks'])) {
+                        try {
+                            foreach ($ruleGroup['tasks'] as $taskName => $taskConfig) {
+                                $this->logDebug('Executing task "' . $taskName . '"');
+                                $service = $this->get($taskConfig['service']);
+                                $this->logDebug('Results of previous tasks: '.json_encode($tasksResult));
+                                $tasksResult[$taskName] = $exprLang->evaluate(
+                                    $taskConfig['method'], array(
+                                    'result' => $this->data['rules']['results'][$ruleGroupName],
+                                    'service' => $service,
+                                    'properties' => $this->data['properties'],
+                                    'relationships' => $this->data['relationships'],
+                                    'tasks' => $tasksResult,
+                                ));
+                            }
+                        } catch (\Exception $e) {
                             $this->logError($e->getMessage(), array(
                                 'file' => $e->getFile(),
                                 'line' => $e->getLine(),
                                 'trace' => $e->getTrace(),
                             ));
-                        }
-                    }
-                }
-
-                /*
-                 * Call a bundle's ESP manager.
-                 */
-                if (isset($confParams['manager'])) {
-                    $this->logDebug('Package "'.$this->package.'" has an ESP Manager.');
-                    $espManager = $this->get($confParams['manager']);
-                    $this->data = $espManager->detachEvent($this->event, $this->data);
-
-                    // Check if data returned by ESP Manager is valid.
-                    $protoObj->mergeFromJsonString(json_encode($this->data['properties']));
-                }
-
-                /*
-                 * Run the tasks defined for a rule group.
-                 */
-                if (
-                    isset($confParams['events'])
-                    && isset($confParams['events'][$this->event])
-                    && isset($confParams['events'][$this->event]['rules'])
-                ) {
-                    $this->logDebug('Executing tasks of rule groups for package "'.$this->package.'".');
-                    $exprLang = new ExpressionLanguage();
-
-                    $ruleGroups = $confParams['events'][$this->event]['rules'];
-
-                    $tasksResult = array();
-
-                    foreach($ruleGroups as $ruleGroupName => $ruleGroup) {
-                        $this->logDebug('Executing rule group "'.$ruleGroupName.'"');
-                        if(isset($ruleGroup['tasks']) && is_array($ruleGroup['tasks'])) {
-                            try {
-                                foreach ($ruleGroup['tasks'] as $taskName => $taskConfig) {
-                                    $this->logDebug('Executing task "' . $taskName . '"');
-                                    $service = $this->get($taskConfig['service']);
-                                    $this->logDebug('Results of previous tasks: '.json_encode($tasksResult));
-                                    $tasksResult[$taskName] = $exprLang->evaluate(
-                                        $taskConfig['method'], array(
-                                        'result' => $this->data['rules']['results'][$ruleGroupName],
-                                        'service' => $service,
-                                        'properties' => $this->data['properties'],
-                                        'relationships' => $this->data['relationships'],
-                                        'tasks' => $tasksResult,
-                                    ));
-                                }
-                            } catch (\Exception $e) {
-                                $this->logError($e->getMessage(), array(
-                                    'file' => $e->getFile(),
-                                    'line' => $e->getLine(),
-                                    'trace' => $e->getTrace(),
-                                ));
-                            }
                         }
                     }
                 }
@@ -365,6 +379,8 @@ class EventController extends BaseController
 //            return $response->setStatusCode(Response::HTTP_CREATED);
             return $this->response($response);
         } catch (\Exception $e) {
+            $this->logDebug($e->getMessage());
+            $this->logDebug('[END][ESP EVENT]');
             return $this->errorResponse($e->getMessage(), $e->getCode());
         }
     }
