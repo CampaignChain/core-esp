@@ -239,6 +239,28 @@ class EventController extends BaseController
             }
 
             /*
+             * Put un-processed data into Elasticsearch
+             */
+            /** @var Elasticsearch $esService */
+            $esService = $this->get('campaignchain.core.service.elasticsearch');
+            $esClient = $esService->getClient();
+
+            $esIndex =
+                $this->getParameter('elasticsearch_index')
+                .'.esp.'
+                .str_replace('/', '.', $this->package);
+
+            $this->logDebug('Attempt: Indexing un-processed data for event "' . $this->event . '" in Elasticsearch.');
+            $params = [
+                'index' => $esIndex,
+                'type'  => $this->event,
+                'body'  => $this->data,
+            ];
+            $response = $esClient->index($params);
+            $esId = $response['_id'];
+            $this->logDebug('Success: Indexed un-processed data for event "' . $this->event . '" in Elasticsearch with document ID "'.$esId.'".');
+
+            /*
              * Get the package's ESP configuration parameters.
              */
             try {
@@ -350,23 +372,18 @@ class EventController extends BaseController
             }
 
             /*
-             * Put data into Elasticsearch
+             * Update Elasticsearch document with processed data.
              */
-            /** @var Elasticsearch $esService */
-            $esService = $this->get('campaignchain.core.service.elasticsearch');
-            $esClient = $esService->getClient();
-
-            $esIndex =
-                $this->getParameter('elasticsearch_index')
-                .'.esp.'
-                .str_replace('/', '.', $this->package);
+            $this->logDebug('Attempt: Indexing processed data for event "' . $this->event . '" in Elasticsearch with document ID "'.$esId.'".');
 
             $params = [
+                'id' => $esId,
                 'index' => $esIndex,
                 'type'  => $this->event,
                 'body'  => $this->data,
             ];
             $response = $esClient->index($params);
+            $this->logDebug('Success: Indexing processed data for event "' . $this->event . '" in Elasticsearch with document ID "'.$esId.'".');
 
             $this->logDebug('[END][ESP EVENT]');
 
