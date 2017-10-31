@@ -183,9 +183,9 @@ class EventController extends BaseController
                 // Is this event active?
                 if (
                     isset($confParamsAll[$this->package]['events']) &&
-                    isset($confParamsAll[$this->package]['events'][$this->event]) &&
-                    isset($confParamsAll[$this->package]['events'][$this->event]['active']) &&
-                    $confParamsAll[$this->package]['events'][$this->event]['active'] == false
+                    isset($confParamsAll[$this->package]['events'][$this->package . '/'.$this->event]) &&
+                    isset($confParamsAll[$this->package]['events'][$this->package . '/'.$this->event]['active']) &&
+                    $confParamsAll[$this->package]['events'][$this->package . '/'.$this->event]['active'] == false
                 ) {
                     $msg = 'Event "' . $this->package . '/'.$this->event.'" is inactive.';
                     $this->logDebug($msg);
@@ -203,12 +203,12 @@ class EventController extends BaseController
 
                     if (
                         isset($workflowParams['events'])
-                        && isset($workflowParams['events'][$this->event])
-                        && isset($workflowParams['events'][$this->event]['rules'])
+                        && isset($workflowParams['events'][$this->package.'/'.$this->event])
+                        && isset($workflowParams['events'][$this->package.'/'.$this->event]['rules'])
                     ) {
                         $this->logDebug('Workflow "' . $this->workflow . '" has event rule groups defined.');
 
-                        $ruleGroups = $workflowParams['events'][$this->event]['rules'];
+                        $ruleGroups = $workflowParams['events'][$this->package.'/'.$this->event]['rules'];
                     }
                 }
             }
