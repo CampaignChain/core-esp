@@ -157,6 +157,15 @@ class EventController extends BaseController
             $this->prepareData($data);
 
             /*
+             * Set the workflow name, either new or based on header information.
+             */
+            if($request->headers->has(self::WORKFLOW_HEADER)){
+                $this->workflow = $request->headers->get(self::WORKFLOW_HEADER);
+            } else {
+                $this->workflow = $this->package;
+            }
+
+            /*
              * Get the package's ESP configuration parameters.
              */
             try {
@@ -202,15 +211,6 @@ class EventController extends BaseController
                         $ruleGroups = $workflowParams['events'][$this->event]['rules'];
                     }
                 }
-            }
-
-            /*
-             * Set the workflow name, either new or based on header information.
-             */
-            if($request->headers->has(self::WORKFLOW_HEADER)){
-                $this->workflow = $request->headers->get(self::WORKFLOW_HEADER);
-            } else {
-                $this->workflow = $this->package;
             }
 
             /*
