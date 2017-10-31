@@ -157,6 +157,54 @@ class EventController extends BaseController
             $this->prepareData($data);
 
             /*
+             * Get the package's ESP configuration parameters.
+             */
+            try {
+                // Handle with grace if no managers have been defined at all.
+                $confParamsAll = $this->getParameter('campaignchain.core.esp');
+            } catch(\Exception $e) {}
+
+            /*
+             * Process the data.
+             */
+            $espManager = null;
+            $ruleGroups = null;
+
+            if(isset($confParamsAll) && is_array($confParamsAll) && count($confParamsAll)) {
+                // Is this event active?
+                if (
+                    isset($confParamsAll[$this->package]['events']) &&
+                    isset($confParamsAll[$this->package]['events'][$this->event]) &&
+                    isset($confParamsAll[$this->package]['events'][$this->event]['active']) &&
+                    $confParamsAll[$this->package]['events'][$this->event]['active'] == false
+                ) {
+                    $msg = 'Event "' . $this->package . '/'.$this->event.'" is inactive.';
+                    $this->logDebug($msg);
+                    throw new \Exception($msg);
+                }
+                if (isset($confParamsAll[$this->package]['manager'])) {
+                    // Get the ESP Manager for this package.
+                    $this->logDebug('Package "' . $this->package . '" has an ESP Manager.');
+                    $espManager = $this->get($confParamsAll[$this->package]['manager']);
+                }
+
+                if(isset($confParamsAll[$this->workflow])) {
+                    $this->logDebug('Workflow "' . $this->workflow . '" has configuration parameters.');
+                    $workflowParams = $confParamsAll[$this->workflow];
+
+                    if (
+                        isset($workflowParams['events'])
+                        && isset($workflowParams['events'][$this->event])
+                        && isset($workflowParams['events'][$this->event]['rules'])
+                    ) {
+                        $this->logDebug('Workflow "' . $this->workflow . '" has event rule groups defined.');
+
+                        $ruleGroups = $workflowParams['events'][$this->event]['rules'];
+                    }
+                }
+            }
+
+            /*
              * Set the workflow name, either new or based on header information.
              */
             if($request->headers->has(self::WORKFLOW_HEADER)){
@@ -259,42 +307,6 @@ class EventController extends BaseController
             $response = $esClient->index($params);
             $esId = $response['_id'];
             $this->logDebug('Success: Indexed un-processed data for event "' . $this->event . '" in Elasticsearch with document ID "'.$esId.'".');
-
-            /*
-             * Get the package's ESP configuration parameters.
-             */
-            try {
-                // Handle with grace if no managers have been defined at all.
-                $confParamsAll = $this->getParameter('campaignchain.core.esp');
-            } catch(\Exception $e) {}
-
-            /*
-             * Process the data.
-             */
-            $espManager = null;
-            $ruleGroups = null;
-
-            if(isset($confParamsAll) && is_array($confParamsAll) && count($confParamsAll)) {
-                if (isset($confParamsAll[$this->package]['manager'])) {
-                    $this->logDebug('Package "'.$this->package.'" has an ESP Manager.');
-                    $espManager = $this->get($confParamsAll[$this->package]['manager']);
-                }
-
-                if(isset($confParamsAll[$this->workflow])) {
-                    $this->logDebug('Workflow "' . $this->workflow . '" has configuration parameters.');
-                    $workflowParams = $confParamsAll[$this->workflow];
-
-                    if (
-                        isset($workflowParams['events'])
-                        && isset($workflowParams['events'][$this->event])
-                        && isset($workflowParams['events'][$this->event]['rules'])
-                    ) {
-                        $this->logDebug('Workflow "' . $this->workflow . '" has event rule groups defined.');
-
-                        $ruleGroups = $workflowParams['events'][$this->event]['rules'];
-                    }
-                }
-            }
 
             /*
              * Run the rule groups defined for this event.
