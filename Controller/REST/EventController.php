@@ -188,7 +188,6 @@ class EventController extends BaseController
                     $confParamsAll[$this->package]['events'][$this->package . '/'.$this->event]['active'] == false
                 ) {
                     $msg = 'Event "' . $this->package . '/'.$this->event.'" is inactive.';
-                    $this->logDebug($msg);
                     throw new \Exception($msg);
                 }
                 if (isset($confParamsAll[$this->package]['manager'])) {
